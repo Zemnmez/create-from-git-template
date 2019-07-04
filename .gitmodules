@@ -1,0 +1,3 @@
+[submodule "create-react-app-z-template"]
+	path = create-react-app-z-template
+	url = git@github.com:Zemnmez/create-react-app-z-template.git
