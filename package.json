@@ -1,0 +1,13 @@
+{
+  "name": "create-react-app-z",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:Zemnmez/create-react-app-z.git",
+  "author": "tshadwel <tshadwel@amazon.com>",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^2.4.2",
+    "commander": "^2.20.0",
+    "ora": "^3.4.0"
+  }
+}
