@@ -37,11 +37,15 @@ const sentencify = ([firstChr, ...etc]) => `${firstChr.toUpperCase()}${etc.join(
 
 const debug = process.env.DEVELOPMENT
 
-const loadify = (promise, caption) => async (...args) => {
+const loadify = (promise, caption, {
+  significant = true
+}) => async (...args) => {
   const spinner = ora(caption).start()
   try {
     const ret = await promise(...args);
-    spinner.succeed()
+    if (significant) {
+      spinner.succeed()
+    } else spinner.stop()
     return ret
   } catch (e) {
     spinner.fail()
@@ -167,6 +171,9 @@ async function Do() {
 
 
   await tmplDir.run("yarn")
+
+  await tmplDir.run("git", "add", "yarn.lock")
+  await tmplDir.run("git", "commit", "-m", `[${myName}]: add yarn.lock`)
 
 }
 
