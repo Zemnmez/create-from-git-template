@@ -8,7 +8,8 @@ const readFile = promisify(require('fs').readFile);
 const writeFile = promisify(require('fs').writeFile);
 const exec = promisify(require('child_process').exec);
 const { execFile } = require('child_process');
-const ncp = promisify(require('ncp').ncp)
+const tmp = require('tmp');
+const tmpdir = promisify(tmp.dir);
 
 const templateDir = 'create-react-app-z-template';
 const myName = 'create-react-app-z'
@@ -174,6 +175,14 @@ async function Do() {
 
   await tmplDir.run("git", "add", "yarn.lock")
   await tmplDir.run("git", "commit", "-m", `[${myName}]: add yarn.lock`)
+
+
+  ora("").info("all looks good, swapping stuff around")
+
+
+  const { path, cleanupCallback } = await loadify(tmpdir, "get temp dir")();
+  await tmplDir.cp(path);
+  cleanupCallback();
 
 }
 
