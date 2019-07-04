@@ -3,7 +3,13 @@ const chalk = require('chalk')
 const commander = require('commander')
 const readline = require('readline')
 const { promisify } = require('util')
+const { join } = require('path')
+const readFile = promisify(require('fs').readFile);
+const writeFile = promisify(require('fs').writeFile);
 const exec = promisify(require('child_process').exec);
+const execFile = promisify(require('child_process').exec);
+
+const templateDir = 'create-react-app-z-template';
 
 
 const noCompleter = () => [];
@@ -29,11 +35,30 @@ const sentencify = ([firstChr, ...etc]) => `${firstChr.toUpperCase()}${etc.join(
 
 const debug = process.env.DEVELOPMENT
 
+const loadify = (promise, caption) => async (...args) => {
+  const spinner = ora(caption)
+  try {
+    const ret = await promise(...args);
+    spinner.succeed()
+    return ret
+  } catch (e) {
+    fail()
+
+    throw (e)
+  }
+}
+
 const shell = async (commandLine) => {
   const { err, stdout, stderr } = await exec(commandLine);
   if (debug) {
     console.log(commandLine, stdout, stderr)
   }
+  if (err) throw err;
+  return stdout.trim();
+}
+
+const run = async(program, argv, options) => {
+  const { err, stdout, stderr } = await execFile(program, argv, options);
   if (err) throw err;
   return stdout.trim();
 }
@@ -81,7 +106,31 @@ const doOptions = async () => {
 }
 
 async function Do() {
-  const options = await doOptions();
+  const { name, version, description, repository,
+    author, deps, peers, devDeps } = await doOptions();
+
+  const x = async (cmd) => loadify(shell, cmd)(cmd);
+  const xf = async (...args) => loadify(run, args.join(" "))(...args);
+  const read = async (file, ...args) => await loadify(readFile, `read ${file}`)
+    (name, ...args)
+
+  const write = async (file, ...args) => await loadify(writeFile, `write ${file}`)
+    (file, ...args)
+
+  const pkg = JSON.parse(await read(join(templateDir, 'package.json')))
+  const newPkg = { ...pkg, name, version, description, repository, author };
+  await write(
+    join(templateDir, 'package.json'),
+    JSON.stringify(newPkg, null, 2)
+  )
+
+  if(deps) await xf("yarn", ["add", ...deps], { cwd: templateDir });
+  if(peers) await xf("yarn", ["add", "--peer", "--dev", ...peers], { cwd: templateDir });
+  if(devDeps) await xf("yarn", ["add", "--dev", ...devDeps], { cwd: templateDir });
+
+  await xf("yarn", [], {cwd: templateDir})
+
+
 }
 
 const always = () => rl.close();
