@@ -1,19 +1,27 @@
+#!/usr/bin/env node
+
 const ora = require('ora')
 const chalk = require('chalk')
 const commander = require('commander')
 const readline = require('readline')
 const { promisify } = require('util')
-const { join } = require('path')
+const path = require('path')
 const readFile = promisify(require('fs').readFile);
 const writeFile = promisify(require('fs').writeFile);
 const exec = promisify(require('child_process').exec);
 const { execFile } = require('child_process');
 const tmp = require('tmp');
 const tmpdir = promisify(tmp.dir);
-
 const templateDir = 'create-react-app-z-template';
 const myName = 'create-react-app-z'
 
+const joinpath = (...segments) => {
+  const myPath = path.join(...segments);
+  const relative = path.relative(process.cwd(), myPath);
+  const absolute = path.resolve(myPath);
+  if (relative.length < absolute.length) return relative;
+  return absolute;
+}
 
 const noCompleter = () => [];
 let completer = noCompleter;
@@ -57,7 +65,7 @@ const loadify = (promise, caption, {
 class wd extends String {
   constructor(...args) { super(...args); }
 
-  cd(dir) { return new wd(join(this.toString(), dir)) }
+  cd(dir) { return new wd(path.join(this.toString(), dir)) }
 
   async cp(target) {
     const source = this.toString();
@@ -66,12 +74,12 @@ class wd extends String {
   }
 
   async read(file, ...etc) {
-    file = join(this.toString(), file)
+    file = joinpath(this.toString(), file)
     return await loadify(readFile, `read ${file}`)(file, ...etc)
   }
 
   async write(file, ...etc) {
-    file = join(this.toString(), file)
+    file = joinpath(this.toString(), file)
     return await loadify(writeFile, `write ${file}`)(file, ...etc)
   }
 
@@ -112,6 +120,7 @@ const doOptions = async () => {
   const gitUsername = await root.run("git", "config", "user.name")
 
   let options = commander
+    .command('create-z-app <target>', { isDefault: true })
     .option('--name <name>', 'package name')
     .option('--ver <version>', 'package version', '0.1.0')
     .option('--description <description>', 'package description')
@@ -145,17 +154,18 @@ const doOptions = async () => {
     options = options.parse(newArgs)
   }
 
-  return options
+  return { ...options, target: options.args[0] }
 }
 
 
 async function Do() {
   const { name, version, description, repository,
-    author, deps, peers, devDeps } = await doOptions();
+    author, deps, peers, devDeps, target } = await doOptions();
 
+  if (!target) return ora("").fail("target must be specified!")
 
-  const tmpDirName = "tmp-template"
-  await root.run("git", "clone", templateDir, tmpDirName)
+  const tmpDirName = target
+  await root.run("git", "clone", joinpath(__dirname, templateDir), target)
   const tmplDir = root.cd(tmpDirName)
 
   const pkg = JSON.parse(await tmplDir.read("package.json"))
@@ -176,16 +186,7 @@ async function Do() {
   await tmplDir.run("git", "add", "yarn.lock")
   await tmplDir.run("git", "commit", "-m", `[${myName}]: add yarn.lock`)
 
-
-  ora("").info("all looks good, swapping stuff around")
-
-
-  const { path, cleanupCallback } = await loadify(tmpdir, "get temp dir")();
-  const wd = process.cwd();
-  await root.run("mv", tmplDir, path);
-  await root.run("rm", "-rf", root)
-  new wd(path).run("mv", join(path, tmplDir), wd)
-  cleanupCallback();
+  ora("").succeed("tasty")
 
 }
 
