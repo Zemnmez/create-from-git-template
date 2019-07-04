@@ -40,7 +40,7 @@ const debug = process.env.DEVELOPMENT
 
 const loadify = (promise, caption, {
   significant = true
-}) => async (...args) => {
+} = {}) => async (...args) => {
   const spinner = ora(caption).start()
   try {
     const ret = await promise(...args);
@@ -181,7 +181,10 @@ async function Do() {
 
 
   const { path, cleanupCallback } = await loadify(tmpdir, "get temp dir")();
-  await tmplDir.cp(path);
+  const wd = process.cwd();
+  await root.run("mv", tmplDir, path);
+  await root.run("rm", "-rf", root)
+  new wd(path).run("mv", join(path, tmplDir), wd)
   cleanupCallback();
 
 }
