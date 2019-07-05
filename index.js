@@ -115,16 +115,20 @@ class wd extends String {
 
 const spaceArray = (s) => s.split(/s+/).map(v => v.trim())
 
+const cannotBeEmpty (name) => (v) => {
+  if (!v) throw new Error(`${name} cannot be empty`);
+}
+
 const root = new wd(".")
 const doOptions = async () => {
   const gitUsername = await root.run("git", "config", "user.name")
 
   let options = commander
     .command('create-z-app <target>', { isDefault: true })
-    .option('--name <name>', 'package name')
+    .option('--name <name>', 'package name', cannotBeEmpty("name"))
     .option('--ver <version>', 'package version', '0.1.0')
     .option('--description <description>', 'package description')
-    .option('--repository <repo uri>', 'package repository URI')
+    .option('--repository <repo uri>', 'package repository URI', cannotBeEmpty('repository'))
     .option('--author <name>', 'package author name', gitUsername)
     .option('--deps [packages]', 'extra space separated dependencies to add', spaceArray)
     .option('--peers [packages]', 'extra peer dependencies to add', spaceArray)
@@ -157,6 +161,8 @@ const doOptions = async () => {
   return { ...options, target: options.args[0] }
 }
 
+const templateUri = "git@github.com:Zemnmez/create-react-app-z-template.git"
+
 
 async function Do() {
   const { name, version, description, repository,
@@ -165,7 +171,7 @@ async function Do() {
   if (!target) return ora("").fail("target must be specified!")
 
   const tmpDirName = target
-  await root.run("git", "clone", joinpath(__dirname, templateDir), target)
+  await root.run("git", "clone", templateUri, target)
   const tmplDir = root.cd(tmpDirName)
 
   const pkg = JSON.parse(await tmplDir.read("package.json"))
@@ -185,6 +191,9 @@ async function Do() {
 
   await tmplDir.run("git", "add", "yarn.lock")
   await tmplDir.run("git", "commit", "-m", `[${myName}]: add yarn.lock`)
+
+  await tmplDir.run("git", "remote", "add", "z-app", templateUri)
+  await tmplDIr.run("git", "remote", "add", "origin", repository)
 
   ora("").succeed("tasty")
 
