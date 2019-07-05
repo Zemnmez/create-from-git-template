@@ -1,17 +1,19 @@
 {
-  "name": "create-z-app",
+  "name": "create-from-git-template",
   "version": "1.0.1",
   "main": "index.js",
+  "scripts": {
+    "make": "make -j"
+  },
   "bin": {
     "create-z-app": "./index.js"
   },
-  "repository": "git@github.com:Zemnmez/create-react-app-z.git",
+  "repository": "git@github.com:Zemnmez/create-from-git-template.git",
   "author": "tshadwel <tshadwel@amazon.com>",
   "license": "MIT",
   "dependencies": {
     "chalk": "^2.4.2",
     "commander": "^2.20.0",
-    "ncp": "^2.0.0",
     "ora": "^3.4.0",
     "tmp": "^0.1.0"
   }

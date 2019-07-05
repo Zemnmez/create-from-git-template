@@ -13,7 +13,29 @@ const { execFile } = require('child_process');
 const tmp = require('tmp');
 const tmpdir = promisify(tmp.dir);
 const templateDir = 'create-react-app-z-template';
-const myName = 'create-react-app-z'
+const package = require('./package.json')
+
+
+const cannotBeEmpty = (name) => (v) => {
+  if (!v) throw new Error(`${name} cannot be empty`);
+  return v;
+}
+
+
+const spaceArray = (s) => s.split(/s+/).map(v => v.trim()).filter(v => v!=='')
+
+let options = commander
+  .command('create-z-app <source-repo> <target>', { isDefault: true })
+  .option('--name <name>', 'package name', cannotBeEmpty("name"))
+  .option('--ver [version]', 'package version', '0.1.0')
+  .option('--description [description]', 'package description')
+  .option('--repository <repo uri>', 'package repository URI', cannotBeEmpty('repository'))
+  .option('--author <name>', 'package author name', cannotBeEmpty('author'))
+  .option('--peers [packages]', 'added peer dependencies', spaceArray)
+  .option('--devDeps [packages]', 'added dev dependencies', spaceArray)
+  .option('--deps [packages]', 'added bundle dependencies', spaceArray)
+  //.option('--conf <file>', 'load defaults from file', loadConfFromFile)
+
 
 const joinpath = (...segments) => {
   const myPath = path.join(...segments);
@@ -67,12 +89,6 @@ class wd extends String {
 
   cd(dir) { return new wd(path.join(this.toString(), dir)) }
 
-  async cp(target) {
-    const source = this.toString();
-    await loadify(ncp, `cp ${source} ${target}`)(source, target)
-    return new wd(target)
-  }
-
   async read(file, ...etc) {
     file = joinpath(this.toString(), file)
     return await loadify(readFile, `read ${file}`)(file, ...etc)
@@ -98,7 +114,7 @@ class wd extends String {
           ok(stdout.trim());
         })
 
-      process.stdout.on('data', d => spinner.text = `[${program} ${this.toString()}] ${d}`);
+      process.stdout.on('data', d => spinner.text = `[${program}] ${d}`);
     })
   }
 
@@ -113,32 +129,29 @@ class wd extends String {
 
 }
 
-const spaceArray = (s) => s.split(/s+/).map(v => v.trim())
 
-const cannotBeEmpty (name) => (v) => {
-  if (!v) throw new Error(`${name} cannot be empty`);
+const oraFail = (err) => {
+  ora(err).fail();
+  throw new Error(err);
 }
 
 const root = new wd(".")
 const doOptions = async () => {
-  const gitUsername = await root.run("git", "config", "user.name")
 
-  let options = commander
-    .command('create-z-app <target>', { isDefault: true })
-    .option('--name <name>', 'package name', cannotBeEmpty("name"))
-    .option('--ver <version>', 'package version', '0.1.0')
-    .option('--description <description>', 'package description')
-    .option('--repository <repo uri>', 'package repository URI', cannotBeEmpty('repository'))
-    .option('--author <name>', 'package author name', gitUsername)
-    .option('--deps [packages]', 'extra space separated dependencies to add', spaceArray)
-    .option('--peers [packages]', 'extra peer dependencies to add', spaceArray)
-    .option('--devDeps [packages]', 'extra dev dependencies to add', spaceArray)
-    //.option('--conf <file>', 'load defaults from file', loadConfFromFile)
+
+  options
     .parse(process.argv)
+
+  const [sourceRepo, target] = options.args
+
+
+  if (!sourceRepo) oraFail("sourceRepo must be specified!")
+  if (!target) oraFail("target must be specified!")
+
 
   var newArgs = [...process.argv]
   for (let { long, description, defaultValue, optional } of options.options) {
-    if (optional) continue;
+    //if (optional) continue;
 
     const parsedName = long.slice(2);
     if (parsedName in options) {
@@ -147,18 +160,23 @@ const doOptions = async () => {
     }
 
     completer = defCompleter(defaultValue)
-    const newValue = await ask(chalk.blue(`${description}${
+    const newValue = await ask(`${optional?"":chalk.red("*")}${chalk.cyan(`${description}${
       defaultValue?chalk.white(` [${defaultValue}]`):""
-    }: `))
+    }: `)}`)
     completer = noCompleter
 
     newArgs = newArgs.concat([long, newValue])
 
     // allows errors to be thrown immediately
-    options = options.parse(newArgs)
+    try {
+      options = options.parse(newArgs)
+    } catch (e) {
+      ora(e).fail()
+      throw(e)
+    }
   }
 
-  return { ...options, target: options.args[0] }
+  return { ...options, sourceRepo, target }
 }
 
 const templateUri = "git@github.com:Zemnmez/create-react-app-z-template.git"
@@ -166,34 +184,35 @@ const templateUri = "git@github.com:Zemnmez/create-react-app-z-template.git"
 
 async function Do() {
   const { name, version, description, repository,
-    author, deps, peers, devDeps, target } = await doOptions();
-
-  if (!target) return ora("").fail("target must be specified!")
+    author, deps, peers, devDeps, target, sourceRepo } = await doOptions();
 
   const tmpDirName = target
-  await root.run("git", "clone", templateUri, target)
+  await root.run("git", "clone", sourceRepo, target)
   const tmplDir = root.cd(tmpDirName)
 
   const pkg = JSON.parse(await tmplDir.read("package.json"))
+
+  pkg.scripts["update-template"] = "git fetch template && git merge template"
 
   const newPkg = { ...pkg, name, version, description, repository, author };
 
   await tmplDir.write('package.json', JSON.stringify(newPkg, null, 2))
   await tmplDir.run("git", "add", "package.json")
-  await tmplDir.run("git", "commit", "-m", `[${myName}]: update package.json`)
+  await tmplDir.run("git", "commit", "-m", `[${package.name}]: update package.json`)
 
-  if (deps) await tmplDir.run("yarn", "add", ...deps);
-  if (peers) await tmplDir.run("yarn", "add", "--peer", "--dev", ...peers);
-  if (devDeps) await tmplDir.run("yarn", "add", "--dev", ...devDeps);
+
+  if (deps.length) await tmplDir.run("yarn", "add", ...deps);
+  if (peers.length) await tmplDir.run("yarn", "add", "--peer", "--dev", ...peers);
+  if (devDeps.length) await tmplDir.run("yarn", "add", "--dev", ...devDeps);
 
 
   await tmplDir.run("yarn")
 
   await tmplDir.run("git", "add", "yarn.lock")
-  await tmplDir.run("git", "commit", "-m", `[${myName}]: add yarn.lock`)
+  await tmplDir.run("git", "commit", "-m", `[${package.name}]: add/update yarn.lock`)
 
-  await tmplDir.run("git", "remote", "add", "z-app", templateUri)
-  await tmplDIr.run("git", "remote", "add", "origin", repository)
+  await tmplDir.run("git", "remote", "rename", "origin", "template")
+  if (repository) await tmplDir.run("git", "remote", "add", "origin", repository)
 
   ora("").succeed("tasty")
 
