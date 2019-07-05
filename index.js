@@ -25,7 +25,8 @@ const cannotBeEmpty = (name) => (v) => {
 const spaceArray = (s) => s.split(/s+/).map(v => v.trim()).filter(v => v!=='')
 
 let options = commander
-  .command('create-z-app <source-repo> <target>', { isDefault: true })
+  .command(`${package.name} <source-repo> <target>`, { isDefault: true })
+  .version(package.version)
   .option('--name <name>', 'package name', cannotBeEmpty("name"))
   .option('--ver [version]', 'package version', '0.1.0')
   .option('--description [description]', 'package description')

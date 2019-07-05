@@ -3,9 +3,10 @@
 This is a `yarn create` program for creating npm packages derived from others.
 
 ```
-Usage: create-z-app [options] <source-repo> <target>
+Usage: create-from-git-template [options] <source-repo> <target>
 
 Options:
+  -V, --version                output the version number
   --name <name>                package name
   --ver [version]              package version (default: "0.1.0")
   --description [description]  package description
@@ -15,6 +16,11 @@ Options:
   --devDeps [packages]         added dev dependencies
   --deps [packages]            added bundle dependencies
   -h, --help                   output usage information
+```
+
+## How do I use it?
+```bash
+yarn create from-git-template <source repo> <target directory>
 ```
 
 ## What does it do?
